@@ -1,82 +1,95 @@
-name: test module
+name: module
 on:
-  workflow_call:
+  push:
+    branches:
+      - main
+
 jobs:
   detect:
     name: detect
-    runs-on: ubuntu-latest
-    permissions:
-      pull-requests: read
     outputs:
       module_changes: ${{ steps.filter.outputs.changes }}
+    permissions:
+      pull-requests: read
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
-        id: filter
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
         with:
-          filters: |
-            alignment:
-              - pyproject.toml
-              - sktime/base/**
-              - sktime/alignment/**
-            classification:
-              - pyproject.toml
-              - sktime/base/**
-              - sktime/classification/**
-            clustering:
-              - pyproject.toml
-              - sktime/base/**
-              - sktime/clustering/**
-            detection:
-              - pyproject.toml
-              - sktime/base/**
-              - sktime/detection/**
-            forecasting:
-              - pyproject.toml
-              - sktime/base/**
-              - sktime/forecasting/**
-            networks:
-              - pyproject.toml
-              - sktime/base/**
-              - sktime/networks/**
-            param_est:
-              - pyproject.toml
-              - sktime/base/**
-              - sktime/param_est/**
-            regression:
-              - pyproject.toml
-              - sktime/base/**
-              - sktime/regression/**
-            transformations:
-              - pyproject.toml
-              - sktime/base/**
-              - sktime/transformations/**
+          json-output: true
+          task: start-measurement
+      - uses: actions/checkout@v4
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters:
+            "alignment:\n  - pyproject.toml\n  - sktime/base/**\n  - sktime/alignment/**\n\
+            classification:\n  - pyproject.toml\n  - sktime/base/**\n  - sktime/classification/**\n\
+            clustering:\n  - pyproject.toml\n  - sktime/base/**\n  - sktime/clustering/**\n\
+            detection:\n  - pyproject.toml\n  - sktime/base/**\n  - sktime/detection/**\n\
+            forecasting:\n  - pyproject.toml\n  - sktime/base/**\n  - sktime/forecasting/**\n\
+            networks:\n  - pyproject.toml\n  - sktime/base/**\n  - sktime/networks/**\n\
+            param_est:\n  - pyproject.toml\n  - sktime/base/**\n  - sktime/param_est/**\n\
+            regression:\n  - pyproject.toml\n  - sktime/base/**\n  - sktime/regression/**\n\
+            transformations:\n  - pyproject.toml\n  - sktime/base/**\n  - sktime/transformations/**\n"
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json
   test:
+    name: null
     needs: detect
-    name:
+    runs-on: ${{ matrix.operating-system }}
+    steps:
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: start-measurement
+      - name: checkout pull request branch
+        uses: actions/checkout@v4
+      - name:
+          ${{ matrix.sktime-component }}, ${{ matrix.operating-system }}, ${{
+          matrix.python-version }}
+        uses: ./.github/actions/test-component
+        with:
+          python-version-identifier: ${{ matrix.python-version }}
+          sktime-component-identifier: ${{ matrix.sktime-component }}
+          sub-sample-estimators: "True"
+          test-affected-estimators: "True"
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json
     strategy:
       fail-fast: false
       matrix:
+        operating-system:
+          - macos-13
+          - ubuntu-latest
+          - windows-latest
         python-version:
           - "3.9"
           - "3.10"
           - "3.11"
           - "3.12"
           - "3.13"
-        operating-system:
-          - macos-13
-          - ubuntu-latest
-          - windows-latest
         sktime-component: ${{ fromJSON(needs.detect.outputs.module_changes) }}
-    runs-on: ${{ matrix.operating-system }}
-    steps:
-      - name: checkout pull request branch
-        uses: actions/checkout@v4
-
-      - name: ${{ matrix.sktime-component }}, ${{ matrix.operating-system }}, ${{ matrix.python-version }}
-        uses: ./.github/actions/test-component
-        with:
-          sktime-component-identifier: ${{ matrix.sktime-component }}
-          python-version-identifier: ${{ matrix.python-version }}
-          sub-sample-estimators: "True"
-          test-affected-estimators: "True"

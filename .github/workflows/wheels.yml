@@ -1,111 +1,243 @@
-name: Build wheels and publish to PyPI
-
+name: wheels
 on:
-  release:
-    types: [published]
+  push:
+    branches:
+      - main
 
 jobs:
   build_wheels:
     name: Build wheels
     runs-on: ubuntu-latest
-
     steps:
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: start-measurement
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
-
+          python-version: "3.10"
       - name: Build wheel
-        run: |
-          python -m pip install build
+        run: "python -m pip install build
+
           python -m build --wheel --sdist --outdir wheelhouse
 
+          "
+      - id: measurement-4
+        name: Record Measurement After Build wheel
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Build wheel
+          task: get-measurement
       - name: Store wheels
         uses: actions/upload-artifact@v4
         with:
           name: wheels
           path: wheelhouse/*
-
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json
   test_unix_wheels:
-    needs: build_wheels
     name: Test wheels on ${{ matrix.os }} with ${{ matrix.python-version }}
+    needs: build_wheels
     runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false  # to not fail all combinations if just one fail
-      matrix:
-        os: [ubuntu-latest, macos-13]
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
-
     steps:
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: start-measurement
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-
       - uses: actions/download-artifact@v4
         with:
           name: wheels
           path: wheelhouse
-
       - name: Display downloaded artifacts
         run: ls -l wheelhouse
-
+      - id: measurement-5
+        name: Record Measurement After Display downloaded artifacts
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Display downloaded artifacts
+          task: get-measurement
       - name: Get wheel filename
         run: echo "WHEELNAME=$(ls ./wheelhouse/sktime-*none-any.whl)" >> $GITHUB_ENV
-
+      - id: measurement-7
+        name: Record Measurement After Get wheel filename
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Get wheel filename
+          task: get-measurement
       - name: Install wheel and extras
         run: python -m pip install "${{ env.WHEELNAME }}[all_extras_pandas2,dev]"
-
+      - id: measurement-9
+        name: Record Measurement After Install wheel and extras
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Install wheel and extras
+          task: get-measurement
       - name: Run tests
         run: make test_without_datasets
-
-  test_windows_wheels:
-    needs: build_wheels
-    name: Test wheels on ${{ matrix.os }} with ${{ matrix.python-version }}
-    runs-on: windows-latest
+      - id: measurement-11
+        name: Record Measurement After Run tests
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Run tests
+          task: get-measurement
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json
     strategy:
-      fail-fast: false  # to not fail all combinations if just one fail
+      fail-fast: false
       matrix:
-        os: [windows-latest]
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
-
+        os:
+          - ubuntu-latest
+          - macos-13
+        python-version:
+          - "3.9"
+          - "3.10"
+          - "3.11"
+          - "3.12"
+          - "3.13"
+  test_windows_wheels:
+    name: Test wheels on ${{ matrix.os }} with ${{ matrix.python-version }}
+    needs: build_wheels
+    runs-on: windows-latest
     steps:
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: start-measurement
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-
       - uses: actions/download-artifact@v4
         with:
           name: wheels
           path: wheelhouse
-
       - name: Display downloaded artifacts
         run: ls -l wheelhouse
-
+      - id: measurement-5
+        name: Record Measurement After Display downloaded artifacts
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Display downloaded artifacts
+          task: get-measurement
       - name: Get wheel filename
         run: echo "WHEELNAME=$(ls ./wheelhouse/sktime-*none-any.whl)" >> $env:GITHUB_ENV
-
+      - id: measurement-7
+        name: Record Measurement After Get wheel filename
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Get wheel filename
+          task: get-measurement
       - name: Install wheel and extras
         run: python -m pip install "${env:WHEELNAME}[all_extras_pandas2,dev]"
-
-      - name: Run tests  # explicit commands as windows does not support make
+      - id: measurement-9
+        name: Record Measurement After Install wheel and extras
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Install wheel and extras
+          task: get-measurement
+      - name: Run tests
         run: python -m pytest  --ignore sktime/datasets
-
+      - id: measurement-11
+        name: Record Measurement After Run tests
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Run tests
+          task: get-measurement
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - windows-latest
+        python-version:
+          - "3.9"
+          - "3.10"
+          - "3.11"
+          - "3.12"
+          - "3.13"
   upload_wheels:
     name: Upload wheels to PyPI
+    needs:
+      - build_wheels
+      - test_unix_wheels
+      - test_windows_wheels
     runs-on: ubuntu-latest
-    needs: [build_wheels,test_unix_wheels,test_windows_wheels]
-
     steps:
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: start-measurement
       - uses: actions/download-artifact@v4
         with:
           name: wheels
           path: wheelhouse
-
       - name: Publish package to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
           packages-dir: wheelhouse/
+          password: ${{ secrets.PYPI_API_TOKEN }}
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json

@@ -1,22 +1,22 @@
-name: Install and test
-
+name: test
 on:
   push:
     branches:
       - main
-  pull_request:
-    branches:
-      - main
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
+  group: ${{ github.workflow }}-${{ github.ref }}
 jobs:
   code-quality:
     name: code-quality
     runs-on: ubuntu-latest
     steps:
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: start-measurement
       - name: repository checkout step
         uses: actions/checkout@v4
       - name: python environment step
@@ -25,308 +25,888 @@ jobs:
           python-version: "3.11"
       - name: install pre-commit
         run: python3 -m pip install pre-commit
+      - id: measurement-4
+        name: Record Measurement After install pre-commit
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: install pre-commit
+          task: get-measurement
       - id: changed-files
         name: identify modified files
         uses: tj-actions/changed-files@v45
       - name: run pre-commit hooks on modified files
-        run: pre-commit run --color always --files ${{ steps.changed-files.outputs.all_changed_files }} --show-diff-on-failure
+        run:
+          pre-commit run --color always --files ${{ steps.changed-files.outputs.all_changed_files
+          }} --show-diff-on-failure
+      - id: measurement-7
+        name: Record Measurement After run pre-commit hooks on modified files
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: run pre-commit hooks on modified files
+          task: get-measurement
       - name: check missing __init__ files
         run: build_tools/fail_on_missing_init_files.sh
         shell: bash
-
-  run-notebook-examples:
-    needs: code-quality
+      - id: measurement-9
+        name: Record Measurement After check missing __init__ files
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: check missing __init__ files
+          task: get-measurement
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json
+  detect:
+    name: detect changes
+    needs: test-nosoftdeps
+    outputs:
+      datasets: ${{ steps.filter.outputs.datasets }}
+      pyproject: ${{ steps.filter.outputs.pyproject }}
+    permissions:
+      pull-requests: read
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
         with:
-          python-version: 3.9
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install .[all_extras,binder,dev,mlflow,dl]
-      - name: Run example notebooks
-        run: build_tools/run_examples.sh
-        shell: bash
-
+          json-output: true
+          task: start-measurement
+      - uses: actions/checkout@v4
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters:
+            "datasets:\n  - sktime/base/**\n  - sktime/datasets/**\npyproject:\n\
+            \  - pyproject.toml\n"
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json
+  detect-package-change:
+    name: detect package changes
+    needs: code-quality
+    outputs:
+      sktime: ${{ steps.filter.outputs.sktime }}
+    permissions:
+      pull-requests: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: start-measurement
+      - uses: actions/checkout@v4
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: "sktime:\n  - sktime/**\n  - pyproject.toml\n"
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json
   run-blogpost-examples:
     needs: code-quality
     runs-on: ubuntu-latest
     steps:
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: start-measurement
       - uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: 3.9
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
+        run: "python -m pip install --upgrade pip
+
           python -m pip install .[all_extras,binder,dev,mlflow]
+
+          "
+      - id: measurement-4
+        name: Record Measurement After Install dependencies
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Install dependencies
+          task: get-measurement
       - name: Run example notebooks
         run: build_tools/run_blogposts.sh
         shell: bash
-
-  detect-package-change:
+      - id: measurement-6
+        name: Record Measurement After Run example notebooks
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Run example notebooks
+          task: get-measurement
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json
+  run-notebook-examples:
     needs: code-quality
-    name: detect package changes
     runs-on: ubuntu-latest
-    permissions:
-      pull-requests: read
-    outputs:
-      sktime: ${{ steps.filter.outputs.sktime }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
-        id: filter
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
         with:
-          filters: |
-            sktime:
-              - sktime/**
-              - pyproject.toml
-
-  test-nodevdeps:
-    needs: detect-package-change
-    if: ${{ needs.detect-package-change.outputs.sktime == 'true' }}
-    runs-on: ubuntu-latest
-    steps:
+          json-output: true
+          task: start-measurement
       - uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: 3.9
-      - name: Display Python version
-        run: python -c "import sys; print(sys.version)"
+      - name: Install dependencies
+        run: "python -m pip install --upgrade pip
 
-      - name: Install sktime and dependencies
-        run: |
-          python -m pip install .
+          python -m pip install .[all_extras,binder,dev,mlflow,dl]
 
-      - name: Run pytest-free tests
-        run: |
-          python sktime/_nopytest_tests.py
-
-  test-nosoftdeps:
-    needs: detect-package-change
-    if: ${{ needs.detect-package-change.outputs.sktime == 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
+          "
+      - id: measurement-4
+        name: Record Measurement After Install dependencies
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
         with:
-          python-version: 3.9
-      - name: Display Python version
-        run: python -c "import sys; print(sys.version)"
-
-      - name: Install sktime and dependencies
-        run: |
-          python -m pip install .[dev]
-
-      - name: Show dependencies
-        run: python -m pip list
-
-      - name: Run tests
-        run: make test_softdeps
-
-  test-nosoftdeps-full:
+          json-output: true
+          label: Install dependencies
+          task: get-measurement
+      - name: Run example notebooks
+        run: build_tools/run_examples.sh
+        shell: bash
+      - id: measurement-6
+        name: Record Measurement After Run example notebooks
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Run example notebooks
+          task: get-measurement
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json
+  test-base:
+    name: base
     needs: test-nosoftdeps
-    runs-on: ubuntu-latest
+    secrets: inherit
     steps:
-      - uses: actions/checkout@v4
-
-      - run: git remote set-branches origin 'main'
-
-      - run: git fetch --depth 1
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
         with:
-          python-version: 3.9
-
-      - name: Display Python version
-        run: python -c "import sys; print(sys.version)"
-
-      - name: Install sktime and dependencies
-        run: |
-          python -m pip install .[dev]
-
-      - name: Show dependencies
-        run: python -m pip list
-
-      - name: Run tests
-        run: make PYTESTOPTIONS="--matrixdesign=False --timeout=600" test_softdeps_full
-
-  test-mlflow:
-    needs: test-nosoftdeps
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
+          json-output: true
+          task: start-measurement
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
         with:
-          python-version: 3.9
-      - name: Display Python version
-        run: python -c "import sys; print(sys.version)"
-
-      - name: Install sktime and dependencies
-        run: |
-          python -m pip install .[all_extras,dev,mlflow_tests] --no-cache-dir
-
-      - name: Show dependencies
-        run: python -m pip list
-
-      - name: Run tests
-        run: make test_mlflow
-
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json
+    uses: ./.github/workflows/test_base.yml
   test-cython-estimators:
     needs: test-nosoftdeps
     runs-on: macos-13
     steps:
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: start-measurement
       - uses: actions/checkout@v4
-
       - run: git remote set-branches origin 'main'
-
+      - id: measurement-3
+        name: Record Measurement After Step
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Step
+          task: get-measurement
       - run: git fetch --depth 1
-
+      - id: measurement-5
+        name: Record Measurement After Step
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Step
+          task: get-measurement
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: 3.9
       - name: Display Python version
         run: python -c "import sys; print(sys.version)"
-
+      - id: measurement-8
+        name: Record Measurement After Display Python version
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Display Python version
+          task: get-measurement
       - name: Install OSX packages
-        shell: bash
         run: ./.github/scripts/install_osx_dependencies.sh
-
+        shell: bash
+      - id: measurement-10
+        name: Record Measurement After Install OSX packages
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Install OSX packages
+          task: get-measurement
       - name: Install sktime and dependencies
-        run: |
-          python -m pip install .[dev,cython_extras] --no-cache-dir
+        run: "python -m pip install .[dev,cython_extras] --no-cache-dir
 
+          "
+      - id: measurement-12
+        name: Record Measurement After Install sktime and dependencies
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Install sktime and dependencies
+          task: get-measurement
       - name: Show dependencies
         run: python -m pip list
-
-      - name: Run tests
-        run: make PYTESTOPTIONS="--only_cython_estimators=True --matrixdesign=False --timeout=600" test_check_suite
-
-  detect:
-    needs: test-nosoftdeps
-    name: detect changes
-    runs-on: ubuntu-latest
-    permissions:
-      pull-requests: read
-    outputs:
-      datasets: ${{ steps.filter.outputs.datasets }}
-      pyproject: ${{ steps.filter.outputs.pyproject }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
-        id: filter
+      - id: measurement-14
+        name: Record Measurement After Show dependencies
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
         with:
-          filters: |
-            datasets:
-              - sktime/base/**
-              - sktime/datasets/**
-            pyproject:
-              - pyproject.toml
-
-  test-base:
-    needs: test-nosoftdeps
-    name: base
-    uses: ./.github/workflows/test_base.yml
-    secrets: inherit
-
-  test-module:
-    needs: test-nosoftdeps
-    name: module
-    uses: ./.github/workflows/test_module.yml
-    secrets: inherit
-
-  test-other:
-    needs: test-nosoftdeps
-    name: other
-    uses: ./.github/workflows/test_other.yml
-    secrets: inherit
-
+          json-output: true
+          label: Show dependencies
+          task: get-measurement
+      - name: Run tests
+        run:
+          make PYTESTOPTIONS="--only_cython_estimators=True --matrixdesign=False
+          --timeout=600" test_check_suite
+      - id: measurement-16
+        name: Record Measurement After Run tests
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Run tests
+          task: get-measurement
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json
   test-datasets:
-    needs: detect
-    name: datasets
     if: ${{ needs.detect.outputs.datasets == 'true' }}
-    uses: ./.github/workflows/test_datasets.yml
+    name: datasets
+    needs: detect
     secrets: inherit
-
+    steps:
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: start-measurement
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json
+    uses: ./.github/workflows/test_datasets.yml
   test-full:
     needs: test-nosoftdeps
-    strategy:
-      fail-fast: false  # to not fail all combinations if just one fail
-      matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
-        os: [ubuntu-latest, macos-13, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: start-measurement
       - uses: actions/checkout@v4
-
       - run: git remote set-branches origin 'main'
-
+      - id: measurement-3
+        name: Record Measurement After Step
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Step
+          task: get-measurement
       - run: git fetch --depth 1
-
+      - id: measurement-5
+        name: Record Measurement After Step
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Step
+          task: get-measurement
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-
       - name: Display Python version
         run: python -c "import sys; print(sys.version)"
-
+      - id: measurement-8
+        name: Record Measurement After Display Python version
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Display Python version
+          task: get-measurement
       - name: Install OSX packages
         run: ./.github/scripts/install_osx_dependencies.sh
-
+      - id: measurement-10
+        name: Record Measurement After Install OSX packages
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Install OSX packages
+          task: get-measurement
       - name: Install sktime and dependencies
+        run:
+          python -m pip install .[all_extras_pandas2,dev,dl,compatibility_tests]
+          --no-cache-dir
         shell: bash
-        run: python -m pip install .[all_extras_pandas2,dev,dl,compatibility_tests] --no-cache-dir
-
+      - id: measurement-12
+        name: Record Measurement After Install sktime and dependencies
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Install sktime and dependencies
+          task: get-measurement
       - name: Show dependencies
         run: python -m pip list
-
+      - id: measurement-14
+        name: Record Measurement After Show dependencies
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Show dependencies
+          task: get-measurement
       - name: Show available branches
         run: git branch -a
-
+      - id: measurement-16
+        name: Record Measurement After Show available branches
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Show available branches
+          task: get-measurement
       - name: Run tests
         run: make test_without_datasets
-
-  test-unix-pandas1:
-    needs: test-nosoftdeps
+      - id: measurement-18
+        name: Record Measurement After Run tests
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Run tests
+          task: get-measurement
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        os:
+          - ubuntu-latest
+          - macos-13
+          - windows-latest
+        python-version:
+          - "3.9"
+          - "3.10"
+          - "3.11"
+          - "3.12"
+          - "3.13"
+  test-mlflow:
+    needs: test-nosoftdeps
     runs-on: ubuntu-latest
     steps:
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: start-measurement
       - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.9
+      - name: Display Python version
+        run: python -c "import sys; print(sys.version)"
+      - id: measurement-4
+        name: Record Measurement After Display Python version
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Display Python version
+          task: get-measurement
+      - name: Install sktime and dependencies
+        run:
+          "python -m pip install .[all_extras,dev,mlflow_tests] --no-cache-dir
 
+          "
+      - id: measurement-6
+        name: Record Measurement After Install sktime and dependencies
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Install sktime and dependencies
+          task: get-measurement
+      - name: Show dependencies
+        run: python -m pip list
+      - id: measurement-8
+        name: Record Measurement After Show dependencies
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Show dependencies
+          task: get-measurement
+      - name: Run tests
+        run: make test_mlflow
+      - id: measurement-10
+        name: Record Measurement After Run tests
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Run tests
+          task: get-measurement
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json
+  test-module:
+    name: module
+    needs: test-nosoftdeps
+    secrets: inherit
+    steps:
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: start-measurement
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json
+    uses: ./.github/workflows/test_module.yml
+  test-nodevdeps:
+    if: ${{ needs.detect-package-change.outputs.sktime == 'true' }}
+    needs: detect-package-change
+    runs-on: ubuntu-latest
+    steps:
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: start-measurement
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.9
+      - name: Display Python version
+        run: python -c "import sys; print(sys.version)"
+      - id: measurement-4
+        name: Record Measurement After Display Python version
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Display Python version
+          task: get-measurement
+      - name: Install sktime and dependencies
+        run: "python -m pip install .
+
+          "
+      - id: measurement-6
+        name: Record Measurement After Install sktime and dependencies
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Install sktime and dependencies
+          task: get-measurement
+      - name: Run pytest-free tests
+        run: "python sktime/_nopytest_tests.py
+
+          "
+      - id: measurement-8
+        name: Record Measurement After Run pytest-free tests
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Run pytest-free tests
+          task: get-measurement
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json
+  test-nosoftdeps:
+    if: ${{ needs.detect-package-change.outputs.sktime == 'true' }}
+    needs: detect-package-change
+    runs-on: ubuntu-latest
+    steps:
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: start-measurement
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.9
+      - name: Display Python version
+        run: python -c "import sys; print(sys.version)"
+      - id: measurement-4
+        name: Record Measurement After Display Python version
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Display Python version
+          task: get-measurement
+      - name: Install sktime and dependencies
+        run: "python -m pip install .[dev]
+
+          "
+      - id: measurement-6
+        name: Record Measurement After Install sktime and dependencies
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Install sktime and dependencies
+          task: get-measurement
+      - name: Show dependencies
+        run: python -m pip list
+      - id: measurement-8
+        name: Record Measurement After Show dependencies
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Show dependencies
+          task: get-measurement
+      - name: Run tests
+        run: make test_softdeps
+      - id: measurement-10
+        name: Record Measurement After Run tests
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Run tests
+          task: get-measurement
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json
+  test-nosoftdeps-full:
+    needs: test-nosoftdeps
+    runs-on: ubuntu-latest
+    steps:
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: start-measurement
+      - uses: actions/checkout@v4
       - run: git remote set-branches origin 'main'
-
+      - id: measurement-3
+        name: Record Measurement After Step
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Step
+          task: get-measurement
       - run: git fetch --depth 1
+      - id: measurement-5
+        name: Record Measurement After Step
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Step
+          task: get-measurement
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.9
+      - name: Display Python version
+        run: python -c "import sys; print(sys.version)"
+      - id: measurement-8
+        name: Record Measurement After Display Python version
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Display Python version
+          task: get-measurement
+      - name: Install sktime and dependencies
+        run: "python -m pip install .[dev]
 
+          "
+      - id: measurement-10
+        name: Record Measurement After Install sktime and dependencies
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Install sktime and dependencies
+          task: get-measurement
+      - name: Show dependencies
+        run: python -m pip list
+      - id: measurement-12
+        name: Record Measurement After Show dependencies
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Show dependencies
+          task: get-measurement
+      - name: Run tests
+        run: make PYTESTOPTIONS="--matrixdesign=False --timeout=600" test_softdeps_full
+      - id: measurement-14
+        name: Record Measurement After Run tests
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Run tests
+          task: get-measurement
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json
+  test-other:
+    name: other
+    needs: test-nosoftdeps
+    secrets: inherit
+    steps:
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: start-measurement
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json
+    uses: ./.github/workflows/test_other.yml
+  test-unix-pandas1:
+    needs: test-nosoftdeps
+    runs-on: ubuntu-latest
+    steps:
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: start-measurement
+      - uses: actions/checkout@v4
+      - run: git remote set-branches origin 'main'
+      - id: measurement-3
+        name: Record Measurement After Step
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Step
+          task: get-measurement
+      - run: git fetch --depth 1
+      - id: measurement-5
+        name: Record Measurement After Step
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Step
+          task: get-measurement
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-
       - name: Display Python version
         run: python -c "import sys; print(sys.version)"
-
+      - id: measurement-8
+        name: Record Measurement After Display Python version
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Display Python version
+          task: get-measurement
       - name: Install sktime and dependencies
-        run: |
-          python -m pip install .[all_extras,dev,pandas1,numpy1] --no-cache-dir
+        run:
+          "python -m pip install .[all_extras,dev,pandas1,numpy1] --no-cache-dir
 
+          "
+      - id: measurement-10
+        name: Record Measurement After Install sktime and dependencies
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Install sktime and dependencies
+          task: get-measurement
       - name: Show dependencies
         run: python -m pip list
-
+      - id: measurement-12
+        name: Record Measurement After Show dependencies
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Show dependencies
+          task: get-measurement
       - name: Show available branches
         run: git branch -a
-
+      - id: measurement-14
+        name: Record Measurement After Show available branches
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Show available branches
+          task: get-measurement
       - name: Run tests
         run: make test_without_datasets
+      - id: measurement-16
+        name: Record Measurement After Run tests
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Run tests
+          task: get-measurement
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.9"
+          - "3.10"
+          - "3.11"
+          - "3.12"

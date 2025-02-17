@@ -1,16 +1,18 @@
-name: Update Contributors
-
+name: AWS ML Pipeline
 on:
   push:
-    branches-ignore:
+    branches:
       - main
-    paths:
-      - '.all-contributorsrc'
 
 jobs:
   generate-markdown-and-commit:
     runs-on: ubuntu-latest
     steps:
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: start-measurement
       - uses: actions/checkout@v4
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -18,16 +20,50 @@ jobs:
           node-version: 18
       - name: Set up tool
         run: npm install -g all-contributors-cli@6.24.0
-      - name: Generate file
-        id: generate
+      - id: measurement-4
+        name: Record Measurement After Set up tool
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Set up tool
+          task: get-measurement
+      - id: generate
+        name: Generate file
         run: npx all-contributors generate
-      - name: commit-and-push
-        id: candp
+      - id: measurement-6
+        name: Record Measurement After Generate file
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Generate file
+          task: get-measurement
+      - id: candp
+        name: commit-and-push
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: '[AUTOMATED] update CONTRIBUTORS.md'
-          file_pattern: 'CONTRIBUTORS.md'
           commit_user_name: github-actions[bot]
-      - name: Echo Results
-        if: steps.candp.outputs.changes_detected == 'true'
+          file_pattern: CONTRIBUTORS.md
+      - if: steps.candp.outputs.changes_detected == 'true'
+        name: Echo Results
         run: echo "changes detected and committed."
+      - id: measurement-9
+        name: Record Measurement After Echo Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Echo Results
+          task: get-measurement
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json

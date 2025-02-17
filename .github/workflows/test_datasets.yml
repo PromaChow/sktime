@@ -1,71 +1,41 @@
 name: datasets
 on:
-  schedule:
-    - cron: 0 0 1 * *
-  workflow_call:
-  workflow_dispatch:
-jobs:
-  test_internal_data:
-    name: onboard
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version:
-          - "3.9"
-          - "3.10"
-          - "3.11"
-          - "3.12"
-          - "3.13"
-        operating-system:
-          - macos-13
-          - ubuntu-latest
-          - windows-latest
-    runs-on: ${{ matrix.operating-system }}
-    steps:
-      - name: repository checkout step
-        uses: actions/checkout@v4
-      - name: update tracking reference step
-        run: git remote set-branches origin main
-        shell: bash
-      - name: shallow clone update step
-        run: git fetch --depth 1
-        shell: bash
-      - name: python environment step
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: dependencies installation step
-        run: python3 -m pip install .[tests]
-        shell: bash
-      - name: unit test step
-        run: python3 -m pytest -m "not datadownload" sktime/datasets
-        shell: bash
+  push:
+    branches:
+      - main
 
+jobs:
   test_external_data:
     name: downloads
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version:
-          - "3.9"
-          - "3.10"
-          - "3.11"
-          - "3.12"
-          - "3.13"
-        operating-system:
-          - macos-13
-          - ubuntu-latest
-          - windows-latest
     runs-on: ${{ matrix.operating-system }}
     steps:
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: start-measurement
       - name: repository checkout step
         uses: actions/checkout@v4
       - name: update tracking reference step
         run: git remote set-branches origin main
         shell: bash
+      - id: measurement-3
+        name: Record Measurement After update tracking reference step
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: update tracking reference step
+          task: get-measurement
       - name: shallow clone update step
         run: git fetch --depth 1
         shell: bash
+      - id: measurement-5
+        name: Record Measurement After shallow clone update step
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: shallow clone update step
+          task: get-measurement
       - name: python environment step
         uses: actions/setup-python@v5
         with:
@@ -73,6 +43,127 @@ jobs:
       - name: dependencies installation step
         run: python3 -m pip install .[tests,datasets]
         shell: bash
+      - id: measurement-8
+        name: Record Measurement After dependencies installation step
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: dependencies installation step
+          task: get-measurement
       - name: unit test step
         run: python3 -m pytest -m "datadownload" sktime/datasets
         shell: bash
+      - id: measurement-10
+        name: Record Measurement After unit test step
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: unit test step
+          task: get-measurement
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json
+    strategy:
+      fail-fast: false
+      matrix:
+        operating-system:
+          - macos-13
+          - ubuntu-latest
+          - windows-latest
+        python-version:
+          - "3.9"
+          - "3.10"
+          - "3.11"
+          - "3.12"
+          - "3.13"
+  test_internal_data:
+    name: onboard
+    runs-on: ${{ matrix.operating-system }}
+    steps:
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: start-measurement
+      - name: repository checkout step
+        uses: actions/checkout@v4
+      - name: update tracking reference step
+        run: git remote set-branches origin main
+        shell: bash
+      - id: measurement-3
+        name: Record Measurement After update tracking reference step
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: update tracking reference step
+          task: get-measurement
+      - name: shallow clone update step
+        run: git fetch --depth 1
+        shell: bash
+      - id: measurement-5
+        name: Record Measurement After shallow clone update step
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: shallow clone update step
+          task: get-measurement
+      - name: python environment step
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: dependencies installation step
+        run: python3 -m pip install .[tests]
+        shell: bash
+      - id: measurement-8
+        name: Record Measurement After dependencies installation step
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: dependencies installation step
+          task: get-measurement
+      - name: unit test step
+        run: python3 -m pytest -m "not datadownload" sktime/datasets
+        shell: bash
+      - id: measurement-10
+        name: Record Measurement After unit test step
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: unit test step
+          task: get-measurement
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json
+    strategy:
+      fail-fast: false
+      matrix:
+        operating-system:
+          - macos-13
+          - ubuntu-latest
+          - windows-latest
+        python-version:
+          - "3.9"
+          - "3.10"
+          - "3.11"
+          - "3.12"
+          - "3.13"

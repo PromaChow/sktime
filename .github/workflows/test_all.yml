@@ -1,14 +1,19 @@
-name: test all
+name: all
 on:
-  schedule:
-    - cron: 0 0 * * 0
-  workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
   code_quality:
     name: code-quality
     runs-on: ubuntu-latest
     steps:
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: start-measurement
       - name: repository checkout step
         uses: actions/checkout@v4
       - name: python environment step
@@ -18,25 +23,36 @@ jobs:
       - name: check missing __init__ files
         run: build_tools/fail_on_missing_init_files.sh
         shell: bash
-
+      - id: measurement-4
+        name: Record Measurement After check missing __init__ files
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: check missing __init__ files
+          task: get-measurement
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json
   test_base:
-    needs: code_quality
     name: base
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version:
-          - "3.9"
-          - "3.10"
-          - "3.11"
-          - "3.12"
-          - "3.13"
-        operating-system:
-          - macos-13
-          - ubuntu-latest
-          - windows-latest
+    needs: code_quality
     runs-on: ${{ matrix.operating-system }}
     steps:
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: start-measurement
       - name: checkout pull request branch
         uses: actions/checkout@v4
       - name: run tests on python ${{ matrix.python-version }}
@@ -45,23 +61,79 @@ jobs:
           python-version-identifier: ${{ matrix.python-version }}
           sub-sample-estimators: "False"
           test-affected-estimators: "False"
-
-  test_module:
-    needs: code_quality
-    name: module
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json
     strategy:
       fail-fast: false
       matrix:
+        operating-system:
+          - macos-13
+          - ubuntu-latest
+          - windows-latest
         python-version:
           - "3.9"
           - "3.10"
           - "3.11"
           - "3.12"
           - "3.13"
+  test_module:
+    name: module
+    needs: code_quality
+    runs-on: ${{ matrix.operating-system }}
+    steps:
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: start-measurement
+      - name: checkout pull request branch
+        uses: actions/checkout@v4
+      - name:
+          run tests for component ${{ matrix.sktime-component }} on python ${{
+          matrix.python-version }}
+        uses: ./.github/actions/test-component
+        with:
+          python-version-identifier: ${{ matrix.python-version }}
+          sktime-component-identifier: ${{ matrix.sktime-component }}
+          sub-sample-estimators: "False"
+          test-affected-estimators: "False"
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json
+    strategy:
+      fail-fast: false
+      matrix:
         operating-system:
           - macos-13
           - ubuntu-latest
           - windows-latest
+        python-version:
+          - "3.9"
+          - "3.10"
+          - "3.11"
+          - "3.12"
+          - "3.13"
         sktime-component:
           - alignment
           - classification
@@ -72,67 +144,97 @@ jobs:
           - param_est
           - regression
           - transformations
+  test_other:
+    name: other
+    needs: code_quality
     runs-on: ${{ matrix.operating-system }}
     steps:
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: start-measurement
       - name: checkout pull request branch
         uses: actions/checkout@v4
-      - name: run tests for component ${{ matrix.sktime-component }} on python ${{ matrix.python-version }}
-        uses: ./.github/actions/test-component
+      - name: update local git tracking reference
+        run: git remote set-branches origin main
+      - id: measurement-3
+        name: Record Measurement After update local git tracking reference
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
         with:
-          sktime-component-identifier: ${{ matrix.sktime-component }}
-          python-version-identifier: ${{ matrix.python-version }}
-          sub-sample-estimators: "False"
-          test-affected-estimators: "False"
-
-  test_other:
-    needs: code_quality
-    name: other
+          json-output: true
+          label: update local git tracking reference
+          task: get-measurement
+      - name: update local shallow clone
+        run: git fetch --depth 1
+      - id: measurement-5
+        name: Record Measurement After update local shallow clone
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: update local shallow clone
+          task: get-measurement
+      - name: create python virtual environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install OSX packages
+        run: ./.github/scripts/install_osx_dependencies.sh
+        shell: bash
+      - id: measurement-8
+        name: Record Measurement After Install OSX packages
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Install OSX packages
+          task: get-measurement
+      - name: install core, test and all soft dependencies
+        run: python3 -m pip install .[all_extras_pandas2,tests]
+      - id: measurement-10
+        name: Record Measurement After install core, test and all soft dependencies
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: install core, test and all soft dependencies
+          task: get-measurement
+      - name: run unit tests
+        run:
+          python3 -m pytest sktime --ignore sktime/base --ignore sktime/datasets
+          --ignore sktime/alignment --ignore sktime/annotation --ignore sktime/classification
+          --ignore sktime/clustering --ignore sktime/detection --ignore sktime/forecasting
+          --ignore sktime/networks --ignore sktime/param_est --ignore sktime/regression
+          --ignore sktime/transformations --matrixdesign False --only_changed_modules
+          False
+      - id: measurement-12
+        name: Record Measurement After run unit tests
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: run unit tests
+          task: get-measurement
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json
     strategy:
       fail-fast: false
       matrix:
+        operating-system:
+          - macos-13
+          - ubuntu-latest
+          - windows-latest
         python-version:
           - "3.9"
           - "3.10"
           - "3.11"
           - "3.12"
           - "3.13"
-        operating-system:
-          - macos-13
-          - ubuntu-latest
-          - windows-latest
-    runs-on: ${{ matrix.operating-system }}
-    steps:
-      - name: checkout pull request branch
-        uses: actions/checkout@v4
-      - name: update local git tracking reference
-        run: git remote set-branches origin main
-      - name: update local shallow clone
-        run: git fetch --depth 1
-      - name: create python virtual environment
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Install OSX packages
-        shell: bash
-        run: ./.github/scripts/install_osx_dependencies.sh
-      - name: install core, test and all soft dependencies
-        run: python3 -m pip install .[all_extras_pandas2,tests]
-      - name: run unit tests
-        run: >-
-          python3
-          -m pytest
-          sktime
-          --ignore sktime/base
-          --ignore sktime/datasets
-          --ignore sktime/alignment
-          --ignore sktime/annotation
-          --ignore sktime/classification
-          --ignore sktime/clustering
-          --ignore sktime/detection
-          --ignore sktime/forecasting
-          --ignore sktime/networks
-          --ignore sktime/param_est
-          --ignore sktime/regression
-          --ignore sktime/transformations
-          --matrixdesign False
-          --only_changed_modules False
