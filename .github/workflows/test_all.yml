@@ -37,12 +37,12 @@ jobs:
           json-output: true
           task: display-results
       - name: Save Total Energy Consumption Data
-        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption-${{ github.run_id }}.json
       - name: Upload Energy Consumption Artifact
         uses: actions/upload-artifact@v4
         with:
           name: total-energy-consumption
-          path: total_energy_consumption.json
+          path: total_energy_consumption-${{ github.run_id }}.json
   test_base:
     name: base
     needs: code_quality
@@ -68,12 +68,12 @@ jobs:
           json-output: true
           task: display-results
       - name: Save Total Energy Consumption Data
-        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption-${{ github.run_id }}.json
       - name: Upload Energy Consumption Artifact
         uses: actions/upload-artifact@v4
         with:
           name: total-energy-consumption
-          path: total_energy_consumption.json
+          path: total_energy_consumption-${{ github.run_id }}.json
     strategy:
       fail-fast: false
       matrix:
@@ -115,12 +115,12 @@ jobs:
           json-output: true
           task: display-results
       - name: Save Total Energy Consumption Data
-        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption-${{ github.run_id }}.json
       - name: Upload Energy Consumption Artifact
         uses: actions/upload-artifact@v4
         with:
           name: total-energy-consumption
-          path: total_energy_consumption.json
+          path: total_energy_consumption-${{ github.run_id }}.json
     strategy:
       fail-fast: false
       matrix:
@@ -219,12 +219,12 @@ jobs:
           json-output: true
           task: display-results
       - name: Save Total Energy Consumption Data
-        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption-${{ github.run_id }}.json
       - name: Upload Energy Consumption Artifact
         uses: actions/upload-artifact@v4
         with:
           name: total-energy-consumption
-          path: total_energy_consumption.json
+          path: total_energy_consumption-${{ github.run_id }}.json
     strategy:
       fail-fast: false
       matrix:
